@@ -81,13 +81,15 @@ export default {
 
       try {
         // Étape 1 : envoi du prompt à AI Horde
+        const apiKey = process.env.VUE_APP_HORDE_API_KEY;
+
         const submissionResponse = await fetch(
           'https://stablehorde.net/api/v2/generate/async',
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              apikey: '0000000000', // Clé anonyme, à remplacer par la tienne
+              apikey: apiKey, // Clé anonyme, à remplacer par la tienne
               'Client-Agent': 'vue-image-bot/1.0',
             },
             body: JSON.stringify({
