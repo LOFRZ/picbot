@@ -64,8 +64,14 @@ export default {
       this.showChat = !this.showChat;
     },
     addMessage(sender, content, type = 'text', prompt = '') {
-      // type: 'text' or 'image'
-      this.chatMessages.push({ sender, text: content, type, url: content, prompt });
+      this.chatMessages.push({
+        sender,
+        text: content,
+        type,
+        url: content,
+        prompt,
+      });
+
       this.$nextTick(() => {
         const container = this.$refs.messages;
         if (container) container.scrollTop = container.scrollHeight;
@@ -80,7 +86,6 @@ export default {
       this.loading = true;
 
       try {
-        // Étape 1 : envoi du prompt à AI Horde
         const apiKey = process.env.VUE_APP_HORDE_API_KEY;
 
         const submissionResponse = await fetch(
@@ -89,7 +94,7 @@ export default {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              apikey: apiKey, // Clé anonyme, à remplacer par la tienne
+              apikey: apiKey,
               'Client-Agent': 'vue-image-bot/1.0',
             },
             body: JSON.stringify({
@@ -110,7 +115,7 @@ export default {
         const submissionData = await submissionResponse.json();
         const requestId = submissionData.id;
 
-        // Étape 2 : polling pour vérifier si image prête
+        // Polling pour récupérer l'image une fois prête
         let done = false;
         let imageUrl = '';
 
@@ -136,7 +141,6 @@ export default {
           }
         }
 
-        // Étape 3 : afficher l’image + bouton téléchargement
         this.addMessage('bot', imageUrl, 'image', text);
       } catch (error) {
         this.addMessage('bot', '❌ Erreur lors de la génération de l’image.');
@@ -145,22 +149,36 @@ export default {
         this.loading = false;
       }
     },
-    downloadImage(url, prompt) {
-      // Génère un nom de fichier propre avec date + prompt simplifié
-      const safePrompt = prompt
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .slice(0, 30);
-      const dateStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-      const filename = `image_${safePrompt}_${dateStr}.png`;
+    async downloadImage(url, prompt) {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
 
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        // Nettoyage du prompt pour un nom de fichier valide
+        const safePrompt = prompt
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/gi, '')
+          .trim()
+          .replace(/\s+/g, '_')
+          .slice(0, 40);
+
+        const dateStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        const filename = `image_${safePrompt}_${dateStr}.png`;
+
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        window.URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        console.error('Erreur lors du téléchargement de l’image :', error);
+        alert("❌ Le téléchargement de l'image a échoué.");
+      }
     },
   },
 };
