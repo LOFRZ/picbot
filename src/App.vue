@@ -5,7 +5,7 @@
 
     <!-- Conteneur principal -->
     <div class="chat-container">
-      <button @click="toggleChat">{{ showChat ? '❌' : '' }} 🤖</button>
+      <button @click="toggleChat">{{ showChat ? '❌' : '🤖' }} </button>
 
       <div v-if="showChat" class="chat-box">
         <div class="messages" ref="messages">
@@ -32,16 +32,18 @@
           </div>
         </div>
 
-        <input
-          type="text"
-          v-model="userInput"
-          @keyup.enter="sendMessage"
-          placeholder="Écris un prompt pour générer une image..."
-          :disabled="loading"
-        />
-        <button @click="sendMessage" :disabled="loading || !userInput.trim()">
-          Générer
-        </button>
+        <div class="input-container">
+          <input
+            type="text"
+            v-model="userInput"
+            @keyup.enter="sendMessage"
+            placeholder="Génération par mots-clés"
+            :disabled="loading"
+          />
+          <button @click="sendMessage" :disabled="loading || !userInput.trim()">
+            Générer
+          </button>
+        </div>
 
         <div v-if="loading" class="loading">⏳ Génération en cours...</div>
       </div>
@@ -115,7 +117,6 @@ export default {
         const submissionData = await submissionResponse.json();
         const requestId = submissionData.id;
 
-        // Polling pour récupérer l'image une fois prête
         let done = false;
         let imageUrl = '';
 
@@ -143,7 +144,7 @@ export default {
 
         this.addMessage('bot', imageUrl, 'image', text);
       } catch (error) {
-        this.addMessage('bot', '❌ Erreur lors de la génération de l’image.');
+        this.addMessage('bot', 'Erreur lors de la generation de l\'image.');
         console.error(error);
       } finally {
         this.loading = false;
@@ -154,7 +155,6 @@ export default {
         const response = await fetch(url);
         const blob = await response.blob();
 
-        // Nettoyage du prompt pour un nom de fichier valide
         const safePrompt = prompt
           .toLowerCase()
           .replace(/[^a-z0-9\s]/gi, '')
@@ -165,19 +165,42 @@ export default {
         const dateStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
         const filename = `image_${safePrompt}_${dateStr}.png`;
 
-        const blobUrl = window.URL.createObjectURL(blob);
+        if (window.showSaveFilePicker) {
+          try {
+            const fileHandle = await window.showSaveFilePicker({
+              suggestedName: filename,
+              types: [{
+                description: 'Images PNG',
+                accept: {'image/png': ['.png']}
+              }]
+            });
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return;
+          } catch (e) {
+            // L'utilisateur a annulé ou erreur, continuer avec la méthode classique
+          }
+        }
 
+        const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
+        link.style.display = 'none';
         link.href = blobUrl;
         link.download = filename;
+        link.rel = 'noopener';
+        
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-
-        window.URL.revokeObjectURL(blobUrl);
+        
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+        }, 1000);
+        
       } catch (error) {
-        console.error('Erreur lors du téléchargement de l’image :', error);
-        alert("❌ Le téléchargement de l'image a échoué.");
+        console.error('Erreur lors du téléchargement de l\'image :', error);
+        alert('Le téléchargement de l\'image a échoué.');
       }
     },
   },
@@ -223,14 +246,15 @@ export default {
 
 .chat-box {
   margin-top: 20px;
-  border-radius: 12px;
+  border-radius: 16px;
   width: 100%;
-  height: 460px;
-  border: 1px solid #ccc;
-  padding: 10px;
-  background: #d1d1d1;
+  height: 500px;
+  border: none;
+  padding: 20px;
+  background: #f8fafc;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
 }
 
 .messages {
@@ -241,34 +265,58 @@ export default {
   flex-direction: column;
 }
 
+.input-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: #f1f5f9;
+  padding: 8px;
+  border-radius: 12px;
+}
+
 input[type='text'] {
-  padding: 8px 15px;
-  font-size: 14px;
-  width: 70%;
-  border-radius: 25px;
-  border: 1px solid #ccc;
-  box-sizing: border-box;
-  height: 36px;
-  background-color: #f0f0f0;
-  color: #333;
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
   outline: none;
+  font-weight: 400;
+}
+
+input[type='text']::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+input[type='text']:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 button {
-  padding: 8px 15px;
-  font-size: 14px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 500;
   border: none;
-  border-radius: 25px;
-  background-color: #007bff;
+  border-radius: 12px;
+  background: #8b5cf6;
   color: white;
   cursor: pointer;
-  margin-left: 10px;
-  height: 36px;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+button:hover:not(:disabled) {
+  background: #7c3aed;
 }
 
 button:disabled {
-  background-color: #6c757d;
+  background: #d1d5db;
+  color: #9ca3af;
   cursor: not-allowed;
 }
 
